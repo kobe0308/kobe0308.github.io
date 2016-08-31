@@ -1,0 +1,477 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title> 開源解析 iOS App - DownTube · Kobe Yu</title><meta name="description" content="開源解析 iOS App - DownTube - Kobe Yu"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="short icon" href="/favicon.png"><link rel="stylesheet" href="/css/apollo.css"><link rel="search" type="application/opensearchdescription+xml" href="https://kobe0308.github.io/atom.xml" title="Kobe Yu"></head><body><div class="wrap"><header><a href="/" class="logo-link"><img src="/favicon.png"></a><ul class="nav nav-list"><li class="nav-list-item"><a href="/" target="_self" class="nav-list-link">BLOG</a></li><li class="nav-list-item"><a href="/archives/" target="_self" class="nav-list-link">ARCHIVE</a></li><li class="nav-list-item"><a href="http://weibo.com/sunchongsheng" target="_blank" class="nav-list-link">WEIBO</a></li><li class="nav-list-item"><a href="https://github.com/pinggod" target="_blank" class="nav-list-link">GITHUB</a></li><li class="nav-list-item"><a href="/atom.xml" target="_self" class="nav-list-link">RSS</a></li></ul></header><section class="container"><div class="post"><article class="post-block"><h1 class="post-title">開源解析 iOS App - DownTube</h1><div class="post-info">Aug 13, 2016</div><div class="post-content"><p>本文目錄 -<br><a href="#簡介">簡介</a><br><a href="#iOS相關函式庫">iOS相關函式庫</a><br><a href="#資料夾結構">資料夾結構</a><br><a href="#程式進入點">程式進入點</a><br><a href="#RootViewControl">RootViewControl：MasterViewController</a><br><a href="#XCDYouTubeKit">XCDYouTubeKit</a><br><a href="#下載並儲存影片">下載並儲存影片</a><br><a href="#播放影片">播放影片</a><br><a href="#心得">心得</a><br><a href="#參考資料">參考資料</a><br><a href="#"></a></p>
+<h2 id="簡介"><a href="#簡介" class="headerlink" title="簡介"></a>簡介</h2><p>DownTube是一個可以下載Youtube影片的iOS App,但因為受限於Youtube的授權關係,本文以技術分享為主,嚴禁商業使用!</p>
+<img src="/2016/08/13/20160813-01/downing.PNG" alt="Folder" title="Folder">
+<p>本文會以三個部分來解析”DownTube”,首先從Youtube的播放連結找出檔案的下載位址,接著開始一個新的下載工作下載的格式是mp4,有一定的儲存路徑與檔案命名原則,最後是播放影音檔案,一樣會從資料結構開始,接著根據App的執行流程解析這個專案.</p>
+<p>專案原始碼連結 <a href="https://github.com/MrAdamBoyd/DownTube" target="_blank" rel="external">link</a></p>
+<h2 id="iOS相關函式庫"><a href="#iOS相關函式庫" class="headerlink" title="iOS相關函式庫"></a>iOS相關函式庫</h2><p>AVPlayer : AVFoundation<br>CoreData<br>NSURLSessionDownloadTask : NSURLSessionTask</p>
+<h2 id="資料夾結構"><a href="#資料夾結構" class="headerlink" title="資料夾結構"></a>資料夾結構</h2><img src="/2016/08/13/20160813-01/FolderStructure.png" alt="Folder" title="Folder">
+<p>首先看到第一層的資料夾有個Podfile,表示這個專案有使用第三方的套件管理,使用的函式庫有:</p>
+<ol>
+<li>XCDYouTubeKit: 一個可以解析Youtube影片資訊的函式庫,此專案主要使用到各種解析度的檔案下載位址</li>
+<li>Fabric: 使用者行為統計的第三方函式褲</li>
+<li>Crashlytics: 蒐集App無預警崩框的訊息</li>
+<li>MMWormhole: App跟Extension之間溝通的函式庫</li>
+</ol>
+<p>在開啟專案之前,要先在Termail下指令”pod install”把第三方函式庫加入專案中,之後再點擊”DownTube.xcworkspace”開啟專案.</p>
+<p>開啟專案後我們看到DownTube專案內以下資料夾:</p>
+<ol>
+<li>Shared: 一個封裝NSUserDefaults的物件”Constants”</li>
+<li>DownTube: 本文主要分析的重點內容</li>
+<li>DownTubeUITests: UI測試程式碼,不解析</li>
+<li>DownTubeShareExtension: 這個Extension能在Safari中直接啟動DownTube下載影片</li>
+<li>Products: 系統自動產生,不解析</li>
+<li>Pods: 函式庫管理工具自動產生,不解析</li>
+<li>Frameworks: 系統自動產生,不解析</li>
+</ol>
+<h2 id="程式進入點"><a href="#程式進入點" class="headerlink" title="程式進入點"></a>程式進入點</h2><p>首先我們觀察AppDelegate.m,發現了三個跟系統特性是事件有關的設定:</p>
+<p>1.設定聲音播放模式,為’AVAudioSessionCategoryPlayback’,忽略靜音鍵強制發出聲音.</p>
+<pre><code>do {
+        try AVAudioSession.sharedInstance().setCategory(AVAudioSessionCategoryPlayback)
+    } catch {
+        print(&quot;Background audio not enabled&quot;)
+    }
+</code></pre><p>2.App結束前,將資料寫入Core Data</p>
+<pre><code>func applicationWillTerminate(application: UIApplication) {
+    // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+    // Saves changes in the application&apos;s managed object context before the application terminates.
+    CoreDataController.sharedController.saveContext()
+}
+</code></pre><p>3.背景下載</p>
+<pre><code>func application(application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: () -&gt; Void) {
+    self.backgroundSessionCompletionHandler = completionHandler
+}
+</code></pre><p>note: 一篇關於背景下載的文章 <a href="http://www.cocoachina.com/ios/20131120/7380.html" target="_blank" rel="external">link</a></p>
+<p>另外此專案是使用Storyboard實作UI,所以看不到RootViewController的設定.</p>
+<h2 id="RootViewControl"><a href="#RootViewControl" class="headerlink" title="RootViewControl"></a>RootViewControl</h2><img src="/2016/08/13/20160813-01/MasterViewController.PNG" alt="Folder" title="Folder">
+<p>從Storyboard中可以得知,此專案的根頁面是MasterViewController,主要有兩個導覽列的按鈕(Edit,About),跟一個TableView,TableView與上方一個DownLoad New Video的按鈕,我們就從這個下載按鈕說起.<br>按下Download New Video按鈕會觸發一個函式”askUserForURL”:</p>
+<pre><code>@IBAction func askUserForURL(sender: AnyObject)
+</code></pre><p>askUserForURL()是要使用者輸入Youtube影像連結,以Hebe的小幸運為例,連結是”<a href="https://www.youtube.com/watch?v=CFTZSSJyy7A" target="_blank" rel="external">https://www.youtube.com/watch?v=CFTZSSJyy7A</a>“</p>
+<img src="/2016/08/13/20160813-01/IMG_4158.PNG" alt="Folder" title="Folder">
+<p>使用者輸入Youtube播放網址後會從網址列中取得這段影片的ID,以上述的範例網址影片的ID就是”CFTZSSJyy7A”,得到ID後就透過XCDYouTubeKit取得影片資訊,包括各種解析度的影片檔案位置(URL)</p>
+<pre><code>XCDYouTubeClient.defaultClient().getVideoWithIdentifier(String(url.characters.suffix(11))) { 
+video, error in 
+    self.videoObject(video, downloadedForVideoAt: url, error: error)
+   UIApplication.sharedApplication().networkActivityIndicatorVisible = false    
+}
+</code></pre><h3 id="XCDYouTubeKit"><a href="#XCDYouTubeKit" class="headerlink" title="XCDYouTubeKit"></a>XCDYouTubeKit</h3><p>Youtube官方提供了一個取得影片資訊的API(“get_video_info”),內容包括了title, thumbnail與各種解析度/檔案格式的連結…等等,以HEBE的小幸運為例:</p>
+<pre><code>http://www.youtube.com/get_video_info?video_id=CFTZSSJyy7A
+</code></pre><p>由於回覆的資訊都是字串,而且不是標準的XML或者是JSON格式,所以利用XCDYouTubeKit將回傳的字串轉換為XCDYouTubeVideo物件:</p>
+<pre><code>public class XCDYouTubeVideo : NSObject, NSCopying {
+
+    /**
+     *  --------------------------------
+     *  @name Accessing video properties
+     *  --------------------------------
+     */
+
+    /**
+     *  The 11 characters YouTube video identifier.
+     */
+    public var identifier: String { get }
+    /**
+     *  The title of the video.
+     */
+    public var title: String { get }
+    /**
+     *  The duration of the video in seconds.
+     */
+    public var duration: NSTimeInterval { get }
+
+    /**
+     *  A thumbnail URL for an image of small size, i.e. 120×90. May be nil.
+     */
+    public var smallThumbnailURL: NSURL? { get }
+    /**
+     *  A thumbnail URL for an image of medium size, i.e. 320×180, 480×360 or 640×480. May be nil.
+     */
+    public var mediumThumbnailURL: NSURL? { get }
+    /**
+     *  A thumbnail URL for an image of large size, i.e. 1&apos;280×720 or 1&apos;980×1&apos;080. May be nil.
+     */
+    public var largeThumbnailURL: NSURL? { get }
+
+    /**
+     *  A dictionary of video stream URLs.
+     *
+     *  The keys are the YouTube [itag](https://en.wikipedia.org/wiki/YouTube#Quality_and_formats) values as `NSNumber` objects. The values are the video URLs as `NSURL` objects. There is also the special `XCDYouTubeVideoQualityHTTPLiveStreaming` key for live videos.
+     *
+     *  You should not store the URLs for later use since they have a limited lifetime and are bound to an IP address.
+     *
+     *  @see XCDYouTubeVideoQuality
+     *  @see expirationDate
+     */
+
+    public var streamURLs: [NSObject : NSURL] { get }
+
+    /**
+     *  The expiration date of the video.
+     *
+     *  After this date, the stream URLs will not be playable. May be nil if it can not be determined, for example in live videos.
+     */
+    public var expirationDate: NSDate? { get }
+}
+</code></pre><p>一篇關於拆解YouTube URL的文章<a href="http://hkgoldenmra.blogspot.tw/2013/05/youtube.html" target="_blank" rel="external">link</a></p>
+<p>在XCDYouTubeKit中的Video物件只有低中高三種解析度的URL資訊,事實上不只這些解析度,讀者可以透過另外一個專案<a href="https://github.com/soimort/you-get" target="_blank" rel="external">You-Get</a>瞭解更多影片資訊.</p>
+<pre><code>kobeyu$ you-get -i https://www.youtube.com/watch?v=CFTZSSJyy7A
+site:                YouTube
+title:               田馥甄 Hebe Tien [ 小幸運 官方Live版 A Little Happiness] LIVE Version (如果 田馥甄巡迴演唱會)
+streams:             # Available quality and codecs
+[ DASH ] ____________________________________
+- itag:          137
+  container:     mp4
+  quality:       1920x1080
+  size:          87.2 MiB (91407373 bytes)
+# download-with: you-get --itag=137 [URL]
+
+- itag:          248
+  container:     webm
+  quality:       1920x1080
+  size:          79.1 MiB (82939675 bytes)
+# download-with: you-get --itag=248 [URL]
+
+- itag:          136
+  container:     mp4
+  quality:       1280x720
+  size:          46.1 MiB (48308712 bytes)
+# download-with: you-get --itag=136 [URL]
+
+- itag:          247
+  container:     webm
+  quality:       1280x720
+  size:          39.8 MiB (41687812 bytes)
+# download-with: you-get --itag=247 [URL]
+
+- itag:          135
+  container:     mp4
+  quality:       854x480
+  size:          25.1 MiB (26370772 bytes)
+# download-with: you-get --itag=135 [URL]
+
+- itag:          244
+  container:     webm
+  quality:       854x480
+  size:          21.1 MiB (22146590 bytes)
+# download-with: you-get --itag=244 [URL]
+
+- itag:          134
+  container:     mp4
+  quality:       640x360
+  size:          14.3 MiB (15000639 bytes)
+# download-with: you-get --itag=134 [URL]
+
+- itag:          243
+  container:     webm
+  quality:       640x360
+  size:          13.9 MiB (14599703 bytes)
+# download-with: you-get --itag=243 [URL]
+
+- itag:          133
+  container:     mp4
+  quality:       426x240
+  size:          11.9 MiB (12459119 bytes)
+# download-with: you-get --itag=133 [URL]
+
+- itag:          242
+  container:     webm
+  quality:       426x240
+  size:          9.5 MiB (9911538 bytes)
+# download-with: you-get --itag=242 [URL]
+
+- itag:          160
+  container:     mp4
+  quality:       256x144
+  size:          7.5 MiB (7910663 bytes)
+# download-with: you-get --itag=160 [URL]
+
+- itag:          278
+  container:     webm
+  quality:       256x144
+  size:          7.3 MiB (7653435 bytes)
+# download-with: you-get --itag=278 [URL]
+
+[ DEFAULT ] _________________________________
+- itag:          22
+  container:     mp4
+  quality:       hd720
+  size:          46.1 MiB (48288653 bytes)
+# download-with: you-get --itag=22 [URL]
+
+- itag:          43
+  container:     webm
+  quality:       medium
+# download-with: you-get --itag=43 [URL]
+
+- itag:          18
+  container:     mp4
+  quality:       medium
+# download-with: you-get --itag=18 [URL]
+
+- itag:          36
+  container:     3gp
+  quality:       small
+# download-with: you-get --itag=36 [URL]
+
+- itag:          17
+  container:     3gp
+  quality:       small
+# download-with: you-get --itag=17 [URL]
+</code></pre><p>其中itag代表著不同的解析度與格式(<a href="https://en.wikipedia.org/wiki/YouTube#Quality_and_formats" target="_blank" rel="external">iTag列表</a>)</p>
+<p>一篇關於拆解YouTube URL的文章 <a href="http://hkgoldenmra.blogspot.tw/2013/05/youtube.html" target="_blank" rel="external">link</a></p>
+<h2 id="下載並儲存影片"><a href="#下載並儲存影片" class="headerlink" title="下載並儲存影片"></a>下載並儲存影片</h2><img src="/2016/08/13/20160813-01/downing.PNG" alt="Folder" title="Folder">
+<p>當成功取得XCDYouTubeVideo物件後,接下來就要下載影片到本地端,這段的程式碼如下:</p>
+<pre><code>//MARK: - Helper methods
+
+/**
+ Called when the video info for a video is downloaded
+
+ - parameter video:      optional video object that was downloaded, contains stream info, title, etc.
+ - parameter youTubeUrl: youtube URL of the video
+ - parameter error:      optional error
+ */
+func videoObject(video: XCDYouTubeVideo?, downloadedForVideoAt youTubeUrl: String, error: NSError?) {
+    if let videoTitle = video?.title {
+        print(&quot;\(videoTitle)&quot;)
+
+        var streamUrl: String?
+
+        if let highQualityStream = video?.streamURLs[XCDYouTubeVideoQuality.HD720.rawValue]?.absoluteString {
+
+            //If 720p video exists
+            streamUrl = highQualityStream
+
+        } else if let mediumQualityStream = video?.streamURLs[XCDYouTubeVideoQuality.Medium360.rawValue]?.absoluteString {
+
+            //If 360p video exists
+            streamUrl = mediumQualityStream
+
+        } else if let lowQualityStream = video?.streamURLs[XCDYouTubeVideoQuality.Small240.rawValue]?.absoluteString {
+
+            //If 240p video exists
+            streamUrl = lowQualityStream
+        }
+
+        if let video = video, streamUrl = streamUrl {
+            self.createObjectInCoreDataAndStartDownloadFor(video, withStreamUrl: streamUrl, andYouTubeUrl: youTubeUrl)
+
+            return
+        }   
+    }
+    //Show error to user and remove all errored out videos
+    self.showErrorAndRemoveErroredVideos(error)
+}
+</code></pre><p>從程式碼中可以看出來,作者是由高中低解析的判斷是否有相對應的連結存在,如果不存在高中低解析度則顯示錯誤並返回程序,若存在任一解析度連結,則新增一個CoreData物件並開始下載,這段程式碼如下:</p>
+<pre><code>/**
+     Creates new video object in core data, saves the information for that video, and starts the download of the video stream
+ - parameter video:      video object
+ - parameter streamUrl:  streaming URL for the video
+ - parameter youTubeUrl: youtube URL for the video (youtube.com/watch?=v...)
+ */
+func createObjectInCoreDataAndStartDownloadFor(video: XCDYouTubeVideo?, withStreamUrl streamUrl: String, andYouTubeUrl youTubeUrl: String) {
+
+    //Make sure the stream URL doesn&apos;t exist already
+    guard self.videoIndexForYouTubeUrl(youTubeUrl) == nil else {
+        self.showErrorAlertControllerWithMessage(&quot;Video already downloaded&quot;)
+        return
+    }
+
+    let context = CoreDataController.sharedController.fetchedResultsController.managedObjectContext
+    let entity = CoreDataController.sharedController.fetchedResultsController.fetchRequest.entity!
+    let newVideo = NSEntityDescription.insertNewObjectForEntityForName(entity.name!, inManagedObjectContext: context) as! Video
+
+    newVideo.created = NSDate()
+    newVideo.youtubeUrl = youTubeUrl
+    newVideo.title = video?.title
+    newVideo.streamUrl = streamUrl
+    newVideo.userProgress = 0
+
+    do {
+        try context.save()
+    } catch {
+        abort()
+    }
+
+    //Starts the download of the video
+    self.startDownload(newVideo)
+}
+</code></pre><p>這邊使用了”guard”來判斷URL是否為空,如果為空則顯示錯誤訊息並退出程序,再繼續往下探究程式碼之前,我們先來看看開法者在Core Data的資料結構設定:</p>
+<img src="/2016/08/13/20160813-01/VideoEntities.png" alt="Folder" title="Folder">
+<p>由上圖我們可以知道要存進Core Data的物件有8個特性.</p>
+<p>在產生完Core Data來存放影片資訊後,接著就要進入函式”self.startDownload”開始一個新的下載工作:</p>
+<pre><code>//MARK: - Downloading methods
+
+/**
+ Starts download for video, called when track is added
+
+ - parameter video: Video object
+ */
+func startDownload(video: Video) {
+    print(&quot;Starting download of video \(video.title) by \(video.uploader)&quot;)
+    if let urlString = video.streamUrl, url = NSURL(string: urlString), index = self.videoIndexForStreamUrl(urlString) {
+        let download = Download(url: urlString)
+        download.downloadTask = self.downloadsSession.downloadTaskWithURL(url)
+        download.downloadTask?.resume()
+        download.isDownloading = true
+        self.activeDownloads[download.url] = download
+
+        self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: index, inSection: 0)], withRowAnimation: .None)
+    }
+}
+</code></pre><p>這段重點在於如何產生一個新的NSURLSessionDownloadTask,並啟動下載程序,並且在過程中要持續更新UI讓使用者清楚的知道現在的進度是多少,在下載完成後將暫存的檔案移至指定的位置並同時更改檔名.</p>
+<p>一個新的NSURLSessionDownloadTask是透過以下這行程式初始化的:</p>
+<pre><code>download.downloadTask = self.downloadsSession.downloadTaskWithURL(url)
+</code></pre><p>在往前追朔self.downloadsSession的資料結構與初始化的方式:</p>
+<pre><code>lazy var downloadsSession: NSURLSession = {
+    let configuration = NSURLSessionConfiguration.backgroundSessionConfigurationWithIdentifier(&quot;bgSessionConfiguration&quot;)
+    let session = NSURLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+    return session
+}()
+</code></pre><p>從上述的設定中可以看到downloadsSession是可以在背景執行下載,並且透過delegate(NSURLSessionDelegate)接收回呼函式,這裡實現的回乎函式有:</p>
+<pre><code>1.func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL)
+2.func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)
+</code></pre><p>其中的第一個函式在下載結束後會被呼叫,因為下載完的檔案會被暫存在系統中,所以要將這個暫存檔移到指定路徑做永久保存,這段程式如下:</p>
+<pre><code>//Download finished
+func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL location: NSURL) {
+    if let originalURL = downloadTask.originalRequest?.URL?.absoluteString {
+        if let destinationURL = self.localFilePathForUrl(originalURL) {
+
+            print(&quot;Destination URL: \(destinationURL)&quot;)
+            let fileManager = NSFileManager.defaultManager()
+            //Removing the file at the path, just in case one exists
+            do {
+                try fileManager.removeItemAtURL(destinationURL)
+            } catch {
+                print(&quot;No file to remove. Proceeding...&quot;)
+            }
+
+            //Moving the downloaded file to the new location
+            do {
+                try fileManager.copyItemAtURL(location, toURL: destinationURL)
+            } catch let error as NSError {
+                print(&quot;Could not copy file: \(error.localizedDescription)&quot;)
+            }
+
+            //Updating the cell
+            if let url = downloadTask.originalRequest?.URL?.absoluteString {
+                self.activeDownloads[url] = nil
+
+                if let videoIndex = self.videoIndexForDownloadTask(downloadTask) {
+                    dispatch_async(dispatch_get_main_queue(), {
+                        self.tableView.reloadRowsAtIndexPaths([NSIndexPath(forRow: videoIndex, inSection: 0)], withRowAnimation: .None)
+                    })
+                }
+            }
+        }
+    }
+}
+</code></pre><p>新的路徑與檔名是透過函式”self.localFilePathForUrl()”來處理,處理的方法是透過連結中取出VideoID作為檔名,而副檔名統一為.mp4格式,因為只下載mp4格式的檔案.</p>
+<p>第二個Delegate函式則是在下載時持續更新UI讓使用者了解目前的下載進度,這段的程式碼如下:</p>
+<pre><code>//Updating download status
+func URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+
+    if let downloadUrl = downloadTask.originalRequest?.URL?.absoluteString, download = self.activeDownloads[downloadUrl] {
+        download.progress = Float(totalBytesWritten)/Float(totalBytesExpectedToWrite)
+        let totalSize = NSByteCountFormatter.stringFromByteCount(totalBytesExpectedToWrite, countStyle: NSByteCountFormatterCountStyle.Binary)
+        if let trackIndex = self.videoIndexForDownloadTask(downloadTask), let VideoTableViewCell = tableView.cellForRowAtIndexPath(NSIndexPath(forRow: trackIndex, inSection: 0)) as? VideoTableViewCell {
+            dispatch_async(dispatch_get_main_queue(), {
+
+                let done = (download.progress == 1)
+
+                VideoTableViewCell.progressView.hidden = done
+                VideoTableViewCell.progressLabel.hidden = done
+                VideoTableViewCell.progressView.progress = download.progress
+                VideoTableViewCell.progressLabel.text =  String(format: &quot;%.1f%% of %@&quot;,  download.progress * 100, totalSize)
+            })
+        }
+    }
+}
+</code></pre><p>一篇關於NSURLSessionDownloadTask的文章 <a href="http://www.cnblogs.com/goodboy-heyang/p/5195806.html" target="_blank" rel="external">link</a></p>
+<h2 id="播放影片"><a href="#播放影片" class="headerlink" title="播放影片"></a>播放影片</h2><img src="/2016/08/13/20160813-01/playing.PNG" alt="Folder" title="Folder">
+<p>當檔案下載完畢後點擊曲目就會開始播放,由於曲目是透過TableView呈現,所以點擊後會觸發TableView的”didSelectRowAtIndexPath”,這部分的程式碼如下:</p>
+<pre><code>override func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+    let video = CoreDataController.sharedController.fetchedResultsController.objectAtIndexPath(indexPath) as! Video
+    if self.localFileExistsFor(video) {
+        self.playDownload(video, atIndexPath: indexPath)
+    }
+    tableView.deselectRowAtIndexPath(indexPath, animated: true)
+}
+</code></pre><p>首先判斷要播放的檔案是否存在,由於檔案的資訊是存在Core Data而影音檔案是存在App的資料夾,所以成功從Core Data取出檔案資訊,不代表檔案一定存在!<br>    若要播放已下載的檔案則進入函式”self.playDownload(video, atIndexPath: indexPath)”這部分的程式碼如下:</p>
+<pre><code>/**
+ Plays video in fullscreen player
+
+ - parameter video:     video that is going to be played
+ - parameter indexPath: index path of the video
+ */
+func playDownload(video: Video, atIndexPath indexPath: NSIndexPath) {
+
+
+    if let urlString = video.streamUrl, url = self.localFilePathForUrl(urlString) {
+
+          //路徑是指到一個.mp4的本地端檔案
+          //以我自己執行的時候路徑是:
+          //file:///var/mobile/Containers/Data/Application/FA30A6EC-AE24-4783-8DC6-4DE254133585/Documents/o-AOzX-MYrc2CU8zM.mp4
+        let player = AVPlayer(URL: url)
+
+        //Seek to time if the time is saved
+        if let time = video.userProgress as? Double {
+            player.seekToTime(CMTime(seconds: time, preferredTimescale: 1))
+        }
+
+        let playerViewController = AVPlayerViewController()
+        video.userProgress = 0
+        player.addPeriodicTimeObserverForInterval(CMTime(seconds: 10, preferredTimescale: 1), queue: dispatch_get_main_queue()) { [weak self] time in
+
+            //Every 5 seconds, update the progress of the video in core data
+            let intTime = Int(CMTimeGetSeconds(time))
+            let totalVideoTime = CMTimeGetSeconds(player.currentItem!.duration)
+            let progressPercent = Double(intTime) / totalVideoTime
+
+            print(&quot;User progress on video in seconds: \(intTime)&quot;)
+
+            //If user is 95% done with the video, mark it as done
+            if progressPercent &gt; 0.95 {
+                video.userProgress = nil
+            } else {
+                video.userProgress = intTime
+            }
+
+            CoreDataController.sharedController.saveContext()
+            self?.tableView.reloadRowsAtIndexPaths([indexPath], withRowAnimation: .None)
+
+        }
+        playerViewController.player = player
+        self.presentViewController(playerViewController, animated: true) {
+            playerViewController.player!.play()
+        }
+    }
+}
+</code></pre><p>本專案播放是透過AVFoundation中的AVPlayer與AVPlayerViewController分別作為影音播放的控制與顯示,重點在以下這幾行程式:</p>
+<p>1.宣告一個AVPlayer物件,並指定要播放的本地端檔案路徑給這個AVPlayer</p>
+<pre><code>let player = AVPlayer(URL: url)
+</code></pre><p>2.宣告一個timer定時依播放進度更新UI與儲存播放資訊</p>
+<pre><code>player.addPeriodicTimeObserverForInterval(CMTime(seconds: 10, preferredTimescale: 1), queue: dispatch_get_main_queue()) { [weak self] time in
+</code></pre><p>3.宣告一個playerViewController並將以初始化的player(AVPlayer)指定給playerViewController</p>
+<pre><code>playerViewController.player = player
+</code></pre><p>4.顯示畫面並開始播放</p>
+<pre><code>self.presentViewController(playerViewController, animated: true) {
+            playerViewController.player!.play()
+}
+</code></pre><p>note: 一篇關於AVPlayer的文章 <a href="http://www.jianshu.com/p/5016b72c52bd" target="_blank" rel="external">link</a></p>
+<h2 id="心得"><a href="#心得" class="headerlink" title="心得"></a>心得</h2><p>這個專案的重點在於下載,儲存與播放,除了XCDYouTubeKit之外,核心的部分都是使用iOS提供的框架所完成的,所以有一定經驗的開發者應該能夠輕鬆地掌握這個專案.</p>
+<p>在分析專案的過程中發現兩個可以改進的問題或項目:</p>
+<p>1.當檔案正在下載中或者是暫停下載的情況下關掉App,重新開啟之後會發現剛剛正在下載的檔案已經不再下載,點及該檔案也無法播放.</p>
+<p>2.有其他使用者在這個專案的Github中開了一個Issue希望能夠把已下載的檔案移到系統相簿中(Camera Roll)</p>
+<h2 id="參考資料"><a href="#參考資料" class="headerlink" title="參考資料"></a>參考資料</h2><p>DownTube專案原始碼 <a href="https://github.com/MrAdamBoyd/DownTube" target="_blank" rel="external">link</a></p>
+<p>一篇關於NSURLSession的文章 <a href="https://objccn.io/issue-5-4/" target="_blank" rel="external">link</a></p>
+<p>一篇關於拆解YouTube URL的文章 <a href="http://hkgoldenmra.blogspot.tw/2013/05/youtube.html" target="_blank" rel="external">link</a></p>
+<p>iTag列表 <a href="https://en.wikipedia.org/wiki/YouTube#Quality_and_formats" target="_blank" rel="external">link</a></p>
+<p>XCDYouTubeKit是支援iOS,tvOS與OS X的開源專案 <a href="https://github.com/0xced/XCDYouTubeKit" target="_blank" rel="external">link</a></p>
+<p>一篇關於AVPlayer的文章 <a href="http://www.jianshu.com/p/5016b72c52bd" target="_blank" rel="external">link</a></p>
+</div></article></div></section><footer><div class="paginator"><a href="/2016/08/29/20160829/" class="prev">PREV</a><a href="/2016/08/10/20160810-01/" class="next">NEXT</a></div><div id="disqus_thread"></div><script>var disqus_shortname = 'kobes-blog';
+var disqus_identifier = '2016/08/13/20160813-01/';
+var disqus_title = '開源解析 iOS App - DownTube';
+var disqus_url = 'https://kobe0308.github.io/2016/08/13/20160813-01/';
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//kobes-blog.disqus.com/count.js" async></script><div class="copyright"><p>© 2015 - 2016 <a href="https://kobe0308.github.io">Kobe Yu</a>, powered by <a href="https://hexo.io/" target="_blank">Hexo</a> and <a href="https://github.com/pinggod/hexo-theme-apollo" target="_blank">hexo-theme-apollo</a>.</p></div></footer></div><script async src="//cdn.bootcss.com/mathjax/2.6.1/MathJax.js?config=TeX-MML-AM_CHTML"></script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-1835254-3",'auto');ga('send','pageview');</script></body></html>

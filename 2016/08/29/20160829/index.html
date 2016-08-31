@@ -1,0 +1,173 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title> 開源解析 iOS App - DoubanFM · Kobe Yu</title><meta name="description" content="開源解析 iOS App - DoubanFM - Kobe Yu"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="short icon" href="/favicon.png"><link rel="stylesheet" href="/css/apollo.css"><link rel="search" type="application/opensearchdescription+xml" href="https://kobe0308.github.io/atom.xml" title="Kobe Yu"></head><body><div class="wrap"><header><a href="/" class="logo-link"><img src="/favicon.png"></a><ul class="nav nav-list"><li class="nav-list-item"><a href="/" target="_self" class="nav-list-link">BLOG</a></li><li class="nav-list-item"><a href="/archives/" target="_self" class="nav-list-link">ARCHIVE</a></li><li class="nav-list-item"><a href="http://weibo.com/sunchongsheng" target="_blank" class="nav-list-link">WEIBO</a></li><li class="nav-list-item"><a href="https://github.com/pinggod" target="_blank" class="nav-list-link">GITHUB</a></li><li class="nav-list-item"><a href="/atom.xml" target="_self" class="nav-list-link">RSS</a></li></ul></header><section class="container"><div class="post"><article class="post-block"><h1 class="post-title">開源解析 iOS App - DoubanFM</h1><div class="post-info">Aug 29, 2016</div><div class="post-content"><h2 id="本文目錄"><a href="#本文目錄" class="headerlink" title="本文目錄 -"></a>本文目錄 -</h2><p> <a href="#簡介">簡介</a></p>
+<p> <a href="#iOS函式庫">iOS函式庫</a></p>
+<p> <a href="#資料夾結構">資料夾結構</a></p>
+<p> <a href="#RootViewControl">根頁面 - SidebarController</a></p>
+<p> <a href="#程式進入點">程式進入點</a></p>
+<p> <a href="#核心物件">核心物件</a></p>
+<p> <a href="#心得">心得</a></p>
+<p> <a href="#參考資料">參考資料</a></p>
+<h2 id="簡介"><a href="#簡介" class="headerlink" title="簡介"></a>簡介</h2><p>這個專案是透過豆瓣API播放音樂的開源iOS App,要注意的是豆瓣API是透過逆向工程而得的資訊,並沒有官方文件與授權,所以本文以技術分析為主,如有侵權煩請告知.</p>
+<p>在介紹本專案之前,想先介紹豆瓣FM這個產品,在官方簡介上是這麼說的 “豆瓣FM采用个性化推荐技术作为核心的算法 它简单、聪明，熟悉每个用户的脾气 每个人的收听都与众不同”,我想有許多人對於豆瓣App是相當熟悉,沒有使用過的讀者可以先下載使用看看後應該就能感受到豆瓣是如何具體實現這樣的概念,從UI的設計到推薦歌曲,從前端到後端,所有的設計或工程思維都圍繞在這件事情上面,從前端設計來看,主要功能按鈕只有三個,刪除,愛心與下一首,分別代表討厭,喜愛跟不喜歡目前播放的歌曲,而兆赫的選擇則是確定了使用者喜歡的音樂類型或風格,而後台累積了多年的經驗與數據通常系統推薦的歌曲十之八九都是使用者不討厭甚至是喜歡的,對我來說這個專案最大的收穫不在於技術上的累積,而是看到了一個設計跟工程完美結合的一個產品.</p>
+<p>note:<br>豆瓣FM官方網站 <a href="https://douban.fm" target="_blank" rel="external">link</a><br>豆瓣FM官方iOS開源項目<a href="https://github.com/douban/DOUAudioStreamer.git" target="_blank" rel="external">link</a><br>一篇關於豆瓣FM 4.0的介紹<a href="http://sspai.com/26284" target="_blank" rel="external">link</a><br>一篇關於豆瓣FM的使用者體驗報告 <a href="https://read01.com/2eznoA.html" target="_blank" rel="external">link</a><br>一段介紹豆瓣FM設計概念的影片 <a href="http://www.geekpark.net/videos/165236" target="_blank" rel="external">link</a></p>
+<h2 id="iOS函式庫"><a href="#iOS函式庫" class="headerlink" title="iOS函式庫"></a>iOS函式庫</h2><ul>
+<li>MPMoviePlayerController (在iOS9之後的版本不建議使用,建議以AVPlayer取代)</li>
+</ul>
+<h2 id="第三方函式庫"><a href="#第三方函式庫" class="headerlink" title="第三方函式庫"></a>第三方函式庫</h2><ul>
+<li>AFNetworking</li>
+<li>MJRefresh</li>
+<li>MJExtension</li>
+<li>SDWebImage</li>
+<li>Masonry</li>
+<li>YYKit</li>
+<li>CDSideBarController</li>
+</ul>
+<p>note:<br>一篇對於YYKit作者的介紹 <a href="http://www.infoq.com/cn/news/2015/11/ibireme-interview" target="_blank" rel="external">link</a></p>
+<h2 id="資料夾結構"><a href="#資料夾結構" class="headerlink" title="資料夾結構"></a>資料夾結構</h2><img src="/2016/08/29/20160829/folder_structure.png" alt="Folder" title="Folder">
+<p>從上圖來看此專案作者按著了傳統的MVC的架構作為資料夾結構,而最上層有一個第三方函式庫管理工具Podfile與一個UI元件CDSideBarController.</p>
+<h2 id="RootViewControl"><a href="#RootViewControl" class="headerlink" title="RootViewControl"></a>RootViewControl</h2><p>從Main.storyboard中可以知道根頁面是SidebarController,從SidebarController.h檔觀察到一件有趣的事情：</p>
+<pre><code>@interface SidebarController : UITabBarController&lt;CDSideBarControllerDelegate&gt;{
+</code></pre><p>在進一步分析之前先看一下實際上的UI操作,下圖是開啟App後的預設畫面,如果你執行後的畫面跟我的不同是正常的,因為中間顯示的是目前播放歌曲的專輯封面,而歌曲是隨機挑選的,注意到右上角選單的按鈕,    </p>
+<img src="/2016/08/29/20160829/folding.png" alt="Folder" title="Folder">
+<p>按下去之後,會從右邊展開一系列的選單,中間的主頁面會隨著不同的按鈕切換頁面,回到一開始的宣告作者就是透過UITabBarController + CDSideBarControllerDelegate完成這件事情,</p>
+<img src="/2016/08/29/20160829/expand.png" alt="Folder" title="Folder">
+<p>雖然根目錄是設定為SidebarController,但因為是繼承於UITabBarController,所以要在更進一步去觀察SidebarController中的內容:</p>
+<pre><code>self.viewControllers = @[playerVC, channelsVC, userInfoVC];
+</code></pre><p>從上面那一程式可以知道,在初始畫面上使用者實際看到的是playerVC(PlayerViewController).</p>
+<h2 id="程式進入點"><a href="#程式進入點" class="headerlink" title="程式進入點"></a>程式進入點</h2><p>主要功能的進入點在於PlayerViewController的viewDidLoad開始看起:</p>
+<pre><code>- (void)viewDidLoad {
+[super viewDidLoad];
+self.view.backgroundColor = RGB(239, 239, 244);
+
+[self p_addSubViews];
+[self p_configConstrains];
+[self p_loadPlaylist];
+[PlayerController sharedInstance].songInfoDelegate = self;
+timer = [NSTimer scheduledTimerWithTimeInterval:0.02
+                                         target:self
+                                       selector:@selector(updateProgress)
+                                       userInfo:nil
+                                        repeats:YES];
+}
+</code></pre><ul>
+<li>[self p_addSubViews]是將所有的UI元件加入VeiwController之中</li>
+<li>[self p_configConstrains]是調整UI元件的位置,基本上就是在做AutoLayout的工作</li>
+<li>[self p_loadPlaylist]是透過豆瓣API取得音樂資訊並執行播放的功能</li>
+<li>接下來就是定義參數與建立一個timer定時更新UI頁面.</li>
+</ul>
+<h2 id="核心物件"><a href="#核心物件" class="headerlink" title="核心物件"></a>核心物件</h2><h3 id="PlayerController"><a href="#PlayerController" class="headerlink" title="PlayerController"></a>PlayerController</h3><p>這個物件儲存了音樂來源與提供播放音樂的控制選項,參考宣告檔有以下功能:</p>
+<pre><code>-(void)startPlay;
+-(void)pauseSong;
+-(void)restartSong;
+-(void)likeSong;
+-(void)dislikesong;
+-(void)deleteSong;
+-(void)skipSong;
+</code></pre><p>基本上官方App該有的功能都有,而從另外一個觀點來看PlayerController外層包了一個PlayerViewController處理使用者介面的操作,這樣的設計是稍微可以用MVC的方式來解釋,就是分離了View跟Controller,讓層次與架構更清楚.</p>
+<h3 id="NetworkManager"><a href="#NetworkManager" class="headerlink" title="NetworkManager"></a>NetworkManager</h3><p>這個物件主要是跟豆瓣的伺服器溝通,觀察宣告黨提供了以下的API:</p>
+<pre><code>-(void)LoginwithUsername:(NSString *)username
+                Password:(NSString *)password
+                 Captcha:(NSString *)captcha
+         RememberOnorOff:(NSString *)rememberOnorOff;
+
+-(void)logout;
+
+-(void)loadCaptchaImage;
+
+-(void)loadPlaylistwithType:(NSString *)type;
+</code></pre><p>前兩個是跟帳號有關的登入與登出,第三個是加載登入時所需要的驗證碼的圖檔,最後一個則是跟播放音樂有關的API,目前已知的type與代表的功能如下:</p>
+<pre><code>//获取播放列表信息
+//type
+//n : None. Used for get a song list only.
+//e : Ended a song normally.
+//u : Unlike a hearted song.
+//r : Like a song.
+//s : Skip a song.
+//b : Trash a song.
+//p : Use to get a song list when the song in playlist was all played.
+//sid : the song&apos;s id
+-(void)loadPlaylistwithType:(NSString *)type
+</code></pre><p>搭配著PlayerController的API會更清楚呼叫流程,</p>
+<ul>
+<li>startPlay          -&gt; [networkManager loadPlaylistwithType:@”p”] 如果已經播放到最後一首歌才會呼叫networkManager,否則就繼續播放清單中的下一首歌</li>
+<li>likeSong           -&gt; [networkManager loadPlaylistwithType:@”r”]</li>
+<li>dislikesong     -&gt; [networkManager loadPlaylistwithType:@”u”]</li>
+<li>deleteSong          -&gt; [networkManager loadPlaylistwithType:@”b”]</li>
+<li>skipSong        -&gt; [networkManager loadPlaylistwithType:@”s”]</li>
+</ul>
+<h2 id="向作者提問"><a href="#向作者提問" class="headerlink" title="向作者提問"></a>向作者提問</h2><ol>
+<li>為何使用者的資料是透過NSKeyedUnarchiver儲存而不是NSUserDefaults</li>
+<li>DFMHotChannelsEntity等三個物件已沒有再使用,當初建立的目的是什麼?</li>
+</ol>
+<h2 id="心得"><a href="#心得" class="headerlink" title="心得"></a>心得</h2><ul>
+<li><p>無論是此專案或豆瓣官方的開源App另外設定plist.info才得以連接http位址,目前看到的url都是http,所以要在plist.info中加入 NSAllowsArbitraryLoads = ture的選項才能播放</p>
+</li>
+<li><p>透過字義來看”NetworkManager”是這個App的網路層,應該獨立於其他物件之中,但事實上卻不然,在這個物件中與其他物件有很高的相依性,舉例來說loadPlaylistwithType不只是取得播放清單,還直接啟動了播放的功能[[PlayerController sharedInstance] play],違反了在軟體工程中高內聚低耦合的特性.</p>
+<p>  -(void)loadPlaylistwithType:(NSString *)type{</p>
+<p>  //playlisturl - <a href="http://douban.fm/j/mine/playlist?type=n&amp;sid=(null)&amp;pt=0.000000&amp;channel=0&amp;from=mainsite" target="_blank" rel="external">http://douban.fm/j/mine/playlist?type=n&amp;sid=(null)&amp;pt=0.000000&amp;channel=0&amp;from=mainsite</a><br>  NSString *playlistURLString = [NSString stringWithFormat:PLAYLISTURLFORMATSTRING, type, [SongInfo currentSong].sid, [PlayerController sharedInstance].currentPlaybackTime, [ChannelInfo currentChannel].id];<br>  NSLog(@”play list url:%@”,playlistURLString);</p>
+</li>
+</ul>
+<pre><code>manager.responseSerializer = [AFJSONResponseSerializer serializer];
+[manager GET:playlistURLString parameters:nil success:^(AFHTTPRequestOperation *operation, id responseObject) {
+
+    DFMPlaylist *playList = [PlayerController sharedInstance].playList;
+
+    NSDictionary *songDictionary = responseObject;
+
+    playList = [DFMPlaylist objectWithKeyValues:songDictionary];
+
+    if ([type isEqualToString:@&quot;r&quot;]) {
+        [SongInfo setCurrentSongIndex:-1];
+    }
+    else{
+        if ([playList.song count] != 0) {
+        //若成功取得播放清單,就會執行播放!
+            [SongInfo setCurrentSongIndex:0];
+            [SongInfo setCurrentSong:[playList.song objectAtIndex:[SongInfo currentSongIndex]]];
+            [[PlayerController sharedInstance] setContentURL:[NSURL URLWithString:[SongInfo currentSong].url]];
+            [[PlayerController sharedInstance] play];
+        }
+        //如果是未登录用户第一次使用红心列表，会导致列表中无歌曲
+        else{
+            UIAlertView *alertView = [[UIAlertView alloc]initWithTitle:@&quot;HeyMan&quot; message:@&quot;红心列表中没有歌曲，请您先登陆，或者添加红心歌曲&quot; delegate:self cancelButtonTitle:@&quot;GET&quot; otherButtonTitles: nil];
+            [alertView show];
+            ChannelInfo *myPrivateChannel = [[ChannelInfo alloc]init];
+            myPrivateChannel.name = @&quot;我的私人&quot;;
+            myPrivateChannel.id = @&quot;0&quot;;
+            [ChannelInfo updateCurrentCannel:myPrivateChannel];
+        }
+    }
+    [self.delegate reloadTableviewData];
+} failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+    //FIXME: 或许信息失败有点bug，先这样把 = =
+    //        UIAlertView *alertView = [[UIAlertView alloc]initWithTitle:@&quot;HeyMan&quot; message:@&quot;登陆失败啦&quot; delegate:self cancelButtonTitle:@&quot;哦,酱紫&quot; otherButtonTitles: nil];
+    //        [alertView show];
+    //        NSLog(@&quot;LOADPLAYLIST_ERROR:%@&quot;,error);
+        }];
+}
+</code></pre><ul>
+<li><p>Delegate不好的使用方式<br>  首先在PlayerViewController的ViewDidLoad中可以看到下面這一行程式碼:</p>
+<pre><code>[PlayerController sharedInstance].songInfoDelegate = self;
+</code></pre><p>  這是一般Delegate的呼叫方式,但問題出在下面這行</p>
+<pre><code>-(void)initSongInfomation{
+[self.songInfoDelegate initSongInfomation];
+}
+</code></pre><p>  原作者並沒有先確認self.songInfoDelegate是否有被委託(!=nil),也沒有確認是否有實作initSongInfomation的函式存在,比較好的實作方式為:</p>
+<pre><code>if (self.songInfoDelegate &amp;&amp; [self.songInfoDelegate respondsToSelector:@selector(initSongInfomation)]) {
+    [self.songInfoDelegate performSelector:@selector(initSongInfomation)];
+}
+</code></pre></li>
+<li><p>觀察原作者建立一個ProtocolClass,我想用意應該是要定義所有的Delegate,像是DoubanDelegate就被定義在裡面,這是比較少見到的做法,通常都會跟相關的物件宣告在一起,但哪種做法比較好值得思考一下~</p>
+</li>
+<li><p>原作者在此專案使用了許多的第三方函式庫,我個人原則是以原生函式庫為主,若非必要則不考慮,主要考量為長期支援與安全問題,當然有些第三方開發出來的函式庫更具簡便性與效率,這是值得好好衡量的問題.</p>
+</li>
+<li>由於這個專案是蠻早之前就開發了,我打算使用Swift3.0程式語言與AVPlayer改寫這個App,敬請期待.<h2 id="參考資料"><a href="#參考資料" class="headerlink" title="參考資料"></a>參考資料</h2>關於資料夾結構的分析文章 <a href="https://www.objc.io/issues/13-architecture/viper/" target="_blank" rel="external">link</a> <a href="https://github.com/futurice/ios-good-practices" target="_blank" rel="external">link2</a><br>一篇關於 mvmplayer與avplayer比較的文章 <a href="http://www.jianshu.com/p/5016b72c52bd" target="_blank" rel="external">link</a><br>豆瓣FM API <a href="https://github.com/zonyitoo/doubanfm-qt/wiki/%E8%B1%86%E7%93%A3FM-API" target="_blank" rel="external">link</a> <a href="https://github.com/ampm/Douban-FM-sdk" target="_blank" rel="external">link2</a></li>
+</ul>
+</div></article></div></section><footer><div class="paginator"><a href="/2016/08/13/20160813-01/" class="next">NEXT</a></div><div id="disqus_thread"></div><script>var disqus_shortname = 'kobes-blog';
+var disqus_identifier = '2016/08/29/20160829/';
+var disqus_title = '開源解析 iOS App - DoubanFM';
+var disqus_url = 'https://kobe0308.github.io/2016/08/29/20160829/';
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//kobes-blog.disqus.com/count.js" async></script><div class="copyright"><p>© 2015 - 2016 <a href="https://kobe0308.github.io">Kobe Yu</a>, powered by <a href="https://hexo.io/" target="_blank">Hexo</a> and <a href="https://github.com/pinggod/hexo-theme-apollo" target="_blank">hexo-theme-apollo</a>.</p></div></footer></div><script async src="//cdn.bootcss.com/mathjax/2.6.1/MathJax.js?config=TeX-MML-AM_CHTML"></script><script>(function(b,o,i,l,e,r){b.GoogleAnalyticsObject=l;b[l]||(b[l]=function(){(b[l].q=b[l].q||[]).push(arguments)});b[l].l=+new Date;e=o.createElement(i);r=o.getElementsByTagName(i)[0];e.src='//www.google-analytics.com/analytics.js';r.parentNode.insertBefore(e,r)}(window,document,'script','ga'));ga('create',"UA-1835254-3",'auto');ga('send','pageview');</script></body></html>
