@@ -54,7 +54,7 @@ timer = [NSTimer scheduledTimerWithTimeInterval:0.02
 <li>[self p_loadPlaylist]是透過豆瓣API取得音樂資訊並執行播放的功能</li>
 <li>接下來就是定義參數與建立一個timer定時更新UI頁面.</li>
 </ul>
-<h2 id="核心物件"><a href="#核心物件" class="headerlink" title="核心物件"></a>核心物件</h2><h3 id="PlayerController"><a href="#PlayerController" class="headerlink" title="PlayerController"></a>PlayerController</h3><p>這個物件儲存了音樂來源與提供播放音樂的控制選項,參考宣告檔有以下功能:</p>
+<h2 id="核心物件"><a href="#核心物件" class="headerlink" title="核心物件"></a>核心物件</h2><h3 id="PlayerController"><a href="#PlayerController" class="headerlink" title="PlayerController"></a>PlayerController</h3><p>這個物件儲存了音樂來源與提供播放音樂的控制選項,參考.h檔有以下功能:</p>
 <pre><code>-(void)startPlay;
 -(void)pauseSong;
 -(void)restartSong;
@@ -63,7 +63,7 @@ timer = [NSTimer scheduledTimerWithTimeInterval:0.02
 -(void)deleteSong;
 -(void)skipSong;
 </code></pre><p>基本上官方App該有的功能都有,而從另外一個觀點來看PlayerController外層包了一個PlayerViewController處理使用者介面的操作,這樣的設計是稍微可以用MVC的方式來解釋,就是分離了View跟Controller,讓層次與架構更清楚.</p>
-<h3 id="NetworkManager"><a href="#NetworkManager" class="headerlink" title="NetworkManager"></a>NetworkManager</h3><p>這個物件主要是跟豆瓣的伺服器溝通,觀察宣告黨提供了以下的API:</p>
+<h3 id="NetworkManager"><a href="#NetworkManager" class="headerlink" title="NetworkManager"></a>NetworkManager</h3><p>這個物件主要是跟豆瓣的伺服器溝通,觀察.h檔提供了以下的API:</p>
 <pre><code>-(void)LoginwithUsername:(NSString *)username
                 Password:(NSString *)password
                  Captcha:(NSString *)captcha
@@ -74,7 +74,7 @@ timer = [NSTimer scheduledTimerWithTimeInterval:0.02
 -(void)loadCaptchaImage;
 
 -(void)loadPlaylistwithType:(NSString *)type;
-</code></pre><p>前兩個是跟帳號有關的登入與登出,第三個是加載登入時所需要的驗證碼的圖檔,最後一個則是跟播放音樂有關的API,目前已知的type與代表的功能如下:</p>
+</code></pre><p>前兩個是跟帳號有關的登入與登出,第三個是加載登入時所需要的驗證碼圖檔,最後一個則是跟播放音樂有關的API,目前已知的type與代表的功能如下:</p>
 <pre><code>//获取播放列表信息
 //type
 //n : None. Used for get a song list only.
