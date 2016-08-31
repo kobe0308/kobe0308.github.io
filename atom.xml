@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://kobe0308.github.io/"/>
-  <updated>2016-08-31T09:22:38.000Z</updated>
+  <updated>2016-08-31T12:09:51.000Z</updated>
   <id>https://kobe0308.github.io/</id>
   
   <author>
@@ -20,7 +20,7 @@
     <link href="https://kobe0308.github.io/2016/08/29/20160829/"/>
     <id>https://kobe0308.github.io/2016/08/29/20160829/</id>
     <published>2016-08-29T03:43:04.000Z</published>
-    <updated>2016-08-31T09:22:38.000Z</updated>
+    <updated>2016-08-31T12:09:51.000Z</updated>
     
     <content type="html"><![CDATA[<h2 id="本文目錄"><a href="#本文目錄" class="headerlink" title="本文目錄 -"></a>本文目錄 -</h2><p> <a href="#簡介">簡介</a></p>
 <p> <a href="#iOS函式庫">iOS函式庫</a></p>
@@ -32,7 +32,7 @@
 <p> <a href="#參考資料">參考資料</a></p>
 <h2 id="簡介"><a href="#簡介" class="headerlink" title="簡介"></a>簡介</h2><p>這個專案是透過豆瓣API播放音樂的開源iOS App,要注意的是豆瓣API是透過逆向工程而得的資訊,並沒有官方文件與授權,所以本文以技術分析為主,如有侵權煩請告知.</p>
 <p>在介紹本專案之前,想先介紹豆瓣FM這個產品,在官方簡介上是這麼說的 “豆瓣FM采用个性化推荐技术作为核心的算法 它简单、聪明，熟悉每个用户的脾气 每个人的收听都与众不同”,我想有許多人對於豆瓣App是相當熟悉,沒有使用過的讀者可以先下載使用看看後應該就能感受到豆瓣是如何具體實現這樣的概念,從UI的設計到推薦歌曲,從前端到後端,所有的設計或工程思維都圍繞在這件事情上面,從前端設計來看,主要功能按鈕只有三個,刪除,愛心與下一首,分別代表討厭,喜愛跟不喜歡目前播放的歌曲,而兆赫的選擇則是確定了使用者喜歡的音樂類型或風格,而後台累積了多年的經驗與數據通常系統推薦的歌曲十之八九都是使用者不討厭甚至是喜歡的,對我來說這個專案最大的收穫不在於技術上的累積,而是看到了一個設計跟工程完美結合的一個產品.</p>
-<p>note:<br>豆瓣FM官方網站 <a href="https://douban.fm" target="_blank" rel="external">link</a><br>豆瓣FM官方iOS開源項目<a href="https://github.com/douban/DOUAudioStreamer.git" target="_blank" rel="external">link</a><br>一篇關於豆瓣FM 4.0的介紹<a href="http://sspai.com/26284" target="_blank" rel="external">link</a><br>一篇關於豆瓣FM的使用者體驗報告 <a href="https://read01.com/2eznoA.html" target="_blank" rel="external">link</a><br>一段介紹豆瓣FM設計概念的影片 <a href="http://www.geekpark.net/videos/165236" target="_blank" rel="external">link</a></p>
+<p>note:<br>專案連結 <a href="https://github.com/XVXVXXX/DoubanFM" target="_blank" rel="external">link</a><br>豆瓣FM官方網站 <a href="https://douban.fm" target="_blank" rel="external">link</a><br>豆瓣FM官方iOS開源項目<a href="https://github.com/douban/DOUAudioStreamer.git" target="_blank" rel="external">link</a><br>一篇關於豆瓣FM 4.0的介紹<a href="http://sspai.com/26284" target="_blank" rel="external">link</a><br>一篇關於豆瓣FM的使用者體驗報告 <a href="https://read01.com/2eznoA.html" target="_blank" rel="external">link</a><br>一段介紹豆瓣FM設計概念的影片 <a href="http://www.geekpark.net/videos/165236" target="_blank" rel="external">link</a></p>
 <h2 id="iOS函式庫"><a href="#iOS函式庫" class="headerlink" title="iOS函式庫"></a>iOS函式庫</h2><ul>
 <li>MPMoviePlayerController (在iOS9之後的版本不建議使用,建議以AVPlayer取代)</li>
 </ul>
@@ -184,8 +184,12 @@ timer = [NSTimer scheduledTimerWithTimeInterval:0.02
 </li>
 <li><p>原作者在此專案使用了許多的第三方函式庫,我個人原則是以原生函式庫為主,若非必要則不考慮,主要考量為長期支援與安全問題,當然有些第三方開發出來的函式庫更具簡便性與效率,這是值得好好衡量的問題.</p>
 </li>
-<li>由於這個專案是蠻早之前就開發了,我打算使用Swift3.0程式語言與AVPlayer改寫這個App,敬請期待.<h2 id="參考資料"><a href="#參考資料" class="headerlink" title="參考資料"></a>參考資料</h2>關於資料夾結構的分析文章 <a href="https://www.objc.io/issues/13-architecture/viper/" target="_blank" rel="external">link</a> <a href="https://github.com/futurice/ios-good-practices" target="_blank" rel="external">link2</a><br>一篇關於 mvmplayer與avplayer比較的文章 <a href="http://www.jianshu.com/p/5016b72c52bd" target="_blank" rel="external">link</a><br>豆瓣FM API <a href="https://github.com/zonyitoo/doubanfm-qt/wiki/%E8%B1%86%E7%93%A3FM-API" target="_blank" rel="external">link</a> <a href="https://github.com/ampm/Douban-FM-sdk" target="_blank" rel="external">link2</a></li>
+<li>由於這個專案是蠻早之前就開發了,我打算使用Swift3.0程式語言與AVPlayer改寫這個App,敬請期待.<h2 id="參考資料"><a href="#參考資料" class="headerlink" title="參考資料"></a>參考資料</h2></li>
 </ul>
+<p>專案連結 <a href="https://github.com/XVXVXXX/DoubanFM" target="_blank" rel="external">link</a></p>
+<p>關於資料夾結構的分析文章 <a href="https://www.objc.io/issues/13-architecture/viper/" target="_blank" rel="external">link</a> <a href="https://github.com/futurice/ios-good-practices" target="_blank" rel="external">link2</a></p>
+<p>一篇關於 mvmplayer與avplayer比較的文章 <a href="http://www.jianshu.com/p/5016b72c52bd" target="_blank" rel="external">link</a></p>
+<p>豆瓣FM API <a href="https://github.com/zonyitoo/doubanfm-qt/wiki/%E8%B1%86%E7%93%A3FM-API" target="_blank" rel="external">link</a> <a href="https://github.com/ampm/Douban-FM-sdk" target="_blank" rel="external">link2</a></p>
 ]]></content>
     
     <summary type="html">
