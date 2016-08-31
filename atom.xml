@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://kobe0308.github.io/"/>
-  <updated>2016-08-31T12:15:39.000Z</updated>
+  <updated>2016-08-31T12:18:15.000Z</updated>
   <id>https://kobe0308.github.io/</id>
   
   <author>
@@ -20,7 +20,7 @@
     <link href="https://kobe0308.github.io/2016/08/29/20160829/"/>
     <id>https://kobe0308.github.io/2016/08/29/20160829/</id>
     <published>2016-08-29T03:43:04.000Z</published>
-    <updated>2016-08-31T12:15:39.000Z</updated>
+    <updated>2016-08-31T12:18:15.000Z</updated>
     
     <content type="html"><![CDATA[<h2 id="本文目錄"><a href="#本文目錄" class="headerlink" title="本文目錄 -"></a>本文目錄 -</h2><p> <a href="#簡介">簡介</a></p>
 <p> <a href="#iOS函式庫">iOS函式庫</a></p>
@@ -123,44 +123,45 @@ timer = [NSTimer scheduledTimerWithTimeInterval:0.02
 <li>DFMHotChannelsEntity等三個物件已沒有再使用,當初建立的目的是什麼?</li>
 </ol>
 <h2 id="心得"><a href="#心得" class="headerlink" title="心得"></a>心得</h2><ul>
-<li><p>無論是此專案或豆瓣官方的開源App另外設定plist.info才得以連接http位址,目前看到的url都是http,所以要在plist.info中加入 NSAllowsArbitraryLoads = ture的選項才能播放</p>
+<li><p>由於目前使用的url都是http開頭,所以要在plist.info中加入 NSAllowsArbitraryLoads = ture的選項才能播放</p>
 </li>
 <li><p>透過字義來看”NetworkManager”是這個App的網路層,應該獨立於其他物件之中,但事實上卻不然,在這個物件中與其他物件有很高的相依性,舉例來說loadPlaylistwithType不只是取得播放清單,還直接啟動了播放的功能[[PlayerController sharedInstance] play],違反了在軟體工程中高內聚低耦合的特性.</p>
-<p>  -(void)loadPlaylistwithType:(NSString *)type{</p>
-<p>  //playlisturl - <a href="http://douban.fm/j/mine/playlist?type=n&amp;sid=(null)&amp;pt=0.000000&amp;channel=0&amp;from=mainsite" target="_blank" rel="external">http://douban.fm/j/mine/playlist?type=n&amp;sid=(null)&amp;pt=0.000000&amp;channel=0&amp;from=mainsite</a><br>  NSString *playlistURLString = [NSString stringWithFormat:PLAYLISTURLFORMATSTRING, type, [SongInfo currentSong].sid, [PlayerController sharedInstance].currentPlaybackTime, [ChannelInfo currentChannel].id];<br>  NSLog(@”play list url:%@”,playlistURLString);</p>
-</li>
-</ul>
-<pre><code>manager.responseSerializer = [AFJSONResponseSerializer serializer];
+<pre><code>-(void)loadPlaylistwithType:(NSString *)type{
+//playlisturl - http://douban.fm/j/mine/playlist?type=n&amp;sid=(null)&amp;pt=0.000000&amp;channel=0&amp;from=mainsite
+NSString *playlistURLString = [NSString stringWithFormat:PLAYLISTURLFORMATSTRING, type, [SongInfo currentSong].sid, [PlayerController sharedInstance].currentPlaybackTime, [ChannelInfo currentChannel].id];
+NSLog(@&quot;play list url:%@&quot;,playlistURLString);
+
+manager.responseSerializer = [AFJSONResponseSerializer serializer];
 [manager GET:playlistURLString parameters:nil success:^(AFHTTPRequestOperation *operation, id responseObject) {
 
-    DFMPlaylist *playList = [PlayerController sharedInstance].playList;
+DFMPlaylist *playList = [PlayerController sharedInstance].playList;
 
-    NSDictionary *songDictionary = responseObject;
+NSDictionary *songDictionary = responseObject;
 
-    playList = [DFMPlaylist objectWithKeyValues:songDictionary];
+playList = [DFMPlaylist objectWithKeyValues:songDictionary];
 
-    if ([type isEqualToString:@&quot;r&quot;]) {
-        [SongInfo setCurrentSongIndex:-1];
+if ([type isEqualToString:@&quot;r&quot;]) {
+    [SongInfo setCurrentSongIndex:-1];
+}
+else{
+    if ([playList.song count] != 0) {
+    //若成功取得播放清單,就會執行播放!
+        [SongInfo setCurrentSongIndex:0];
+        [SongInfo setCurrentSong:[playList.song objectAtIndex:[SongInfo currentSongIndex]]];
+        [[PlayerController sharedInstance] setContentURL:[NSURL URLWithString:[SongInfo currentSong].url]];
+        [[PlayerController sharedInstance] play];
     }
+    //如果是未登录用户第一次使用红心列表，会导致列表中无歌曲
     else{
-        if ([playList.song count] != 0) {
-        //若成功取得播放清單,就會執行播放!
-            [SongInfo setCurrentSongIndex:0];
-            [SongInfo setCurrentSong:[playList.song objectAtIndex:[SongInfo currentSongIndex]]];
-            [[PlayerController sharedInstance] setContentURL:[NSURL URLWithString:[SongInfo currentSong].url]];
-            [[PlayerController sharedInstance] play];
-        }
-        //如果是未登录用户第一次使用红心列表，会导致列表中无歌曲
-        else{
-            UIAlertView *alertView = [[UIAlertView alloc]initWithTitle:@&quot;HeyMan&quot; message:@&quot;红心列表中没有歌曲，请您先登陆，或者添加红心歌曲&quot; delegate:self cancelButtonTitle:@&quot;GET&quot; otherButtonTitles: nil];
-            [alertView show];
-            ChannelInfo *myPrivateChannel = [[ChannelInfo alloc]init];
-            myPrivateChannel.name = @&quot;我的私人&quot;;
-            myPrivateChannel.id = @&quot;0&quot;;
-            [ChannelInfo updateCurrentCannel:myPrivateChannel];
-        }
+        UIAlertView *alertView = [[UIAlertView alloc]initWithTitle:@&quot;HeyMan&quot; message:@&quot;红心列表中没有歌曲，请您先登陆，或者添加红心歌曲&quot; delegate:self cancelButtonTitle:@&quot;GET&quot; otherButtonTitles: nil];
+        [alertView show];
+        ChannelInfo *myPrivateChannel = [[ChannelInfo alloc]init];
+        myPrivateChannel.name = @&quot;我的私人&quot;;
+        myPrivateChannel.id = @&quot;0&quot;;
+        [ChannelInfo updateCurrentCannel:myPrivateChannel];
     }
-    [self.delegate reloadTableviewData];
+}
+[self.delegate reloadTableviewData];
 } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
     //FIXME: 或许信息失败有点bug，先这样把 = =
     //        UIAlertView *alertView = [[UIAlertView alloc]initWithTitle:@&quot;HeyMan&quot; message:@&quot;登陆失败啦&quot; delegate:self cancelButtonTitle:@&quot;哦,酱紫&quot; otherButtonTitles: nil];
@@ -168,7 +169,7 @@ timer = [NSTimer scheduledTimerWithTimeInterval:0.02
     //        NSLog(@&quot;LOADPLAYLIST_ERROR:%@&quot;,error);
         }];
 }
-</code></pre><ul>
+</code></pre></li>
 <li><p>Delegate不好的使用方式<br>  首先在PlayerViewController的ViewDidLoad中可以看到下面這一行程式碼:</p>
 <pre><code>[PlayerController sharedInstance].songInfoDelegate = self;
 </code></pre><p>  這是一般Delegate的呼叫方式,但問題出在下面這行</p>
